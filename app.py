@@ -1,5 +1,7 @@
 
 import streamlit as st
+import base64
+from pathlib import Path
 
 # ==========================================
 # YANIDOLLARZ
@@ -14,35 +16,94 @@ st.set_page_config(
 )
 
 # ==========================================
-# 1. WEBSITE STYLING
+# 1. PAGE NAVIGATION
 # ==========================================
 
-st.markdown("""
+if "page" not in st.session_state:
+    st.session_state.page = "home"
+
+
+def navigate(page):
+    st.session_state.page = page
+    st.rerun()
+
+
+# ==========================================
+# 2. LOAD STADIUM PNG BACKGROUND
+# ==========================================
+
+image_path = Path(__file__).parent / "assets" / "stadium.png"
+
+if image_path.exists():
+    image_base64 = base64.b64encode(
+        image_path.read_bytes()
+    ).decode("utf-8")
+
+    stadium_background = (
+        f"url('data:image/png;base64,{image_base64}')"
+    )
+else:
+    stadium_background = "none"
+
+
+# ==========================================
+# 3. WEBSITE STYLING
+# ==========================================
+
+# Stadium background only on homepage
+if st.session_state.page == "home":
+
+    background_css = f"""
+        background-image:
+            linear-gradient(
+                90deg,
+                rgba(5, 11, 21, 0.92) 0%,
+                rgba(8, 17, 31, 0.78) 55%,
+                rgba(9, 20, 35, 0.60) 100%
+            ),
+            {stadium_background};
+        background-size: cover;
+        background-position: center center;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+    """
+
+else:
+
+    background_css = """
+        background: linear-gradient(
+            120deg,
+            #080D15 0%,
+            #101C2B 55%,
+            #17263A 100%
+        );
+    """
+
+
+# Use a placeholder instead of an f-string
+# so normal CSS braces work correctly.
+css = """
 <style>
 
 /* Main background */
 .stApp {
-    background: linear-gradient(
-        120deg,
-        #080D15 0%,
-        #101C2B 55%,
-        #17263A 100%
-    );
+    __BACKGROUND_CSS__
     color: #F8FAFC;
 }
 
-/* Page container */
+/* Main container */
 .block-container {
     max-width: 1200px;
     padding-top: 2rem;
     padding-bottom: 3rem;
 }
 
-/* Text */
+/* Headings */
 h1, h2, h3 {
     color: #F8FAFC !important;
 }
 
+/* Paragraphs */
 p {
     color: #CBD5E1;
 }
@@ -56,14 +117,14 @@ p {
     border-radius: 9px;
     font-weight: 600;
     min-height: 46px;
-    transition: 0.2s;
+    transition: 0.2s ease;
 }
 
-/* Hover */
+/* Button hover */
 .stButton > button:hover,
 .stFormSubmitButton > button:hover {
     background-color: #263B58;
-    color: white !important;
+    color: #FFFFFF !important;
     border-color: #60A5FA;
 }
 
@@ -71,32 +132,33 @@ p {
 .stButton > button[kind="primary"],
 .stFormSubmitButton > button[kind="primary"] {
     background-color: #2563EB;
-    color: white !important;
+    color: #FFFFFF !important;
     border: none;
 }
 
-/* Primary hover */
+/* Primary button hover */
 .stButton > button[kind="primary"]:hover,
 .stFormSubmitButton > button[kind="primary"]:hover {
     background-color: #1D4ED8;
+    color: #FFFFFF !important;
 }
 
-/* Input fields */
+/* Text inputs */
 .stTextInput input {
     background-color: #162337;
-    color: white;
+    color: #FFFFFF;
     border: 1px solid #334155;
     border-radius: 8px;
 }
 
-/* Labels */
+/* Input labels */
 .stTextInput label {
     color: #E2E8F0 !important;
 }
 
-/* Form container */
+/* Forms */
 [data-testid="stForm"] {
-    background-color: rgba(20, 32, 49, 0.65);
+    background-color: rgba(20, 32, 49, 0.85);
     border: 1px solid #334155;
     border-radius: 14px;
     padding: 25px;
@@ -107,30 +169,22 @@ hr {
     border-color: #334155;
 }
 
-/* Hide footer */
+/* Footer */
 footer {
     visibility: hidden;
 }
 
 </style>
-""", unsafe_allow_html=True)
+"""
+
+st.markdown(
+    css.replace("__BACKGROUND_CSS__", background_css),
+    unsafe_allow_html=True
+)
 
 
 # ==========================================
-# 2. PAGE NAVIGATION
-# ==========================================
-
-if "page" not in st.session_state:
-    st.session_state.page = "home"
-
-
-def navigate(page):
-    st.session_state.page = page
-    st.rerun()
-
-
-# ==========================================
-# 3. WEBSITE LOGO
+# 4. YANIDOLLARZ LOGO
 # ==========================================
 
 st.markdown("""
@@ -156,7 +210,7 @@ st.divider()
 
 
 # ==========================================
-# 4. HOMEPAGE
+# 5. HOMEPAGE
 # ==========================================
 
 if st.session_state.page == "home":
@@ -177,6 +231,7 @@ if st.session_state.page == "home":
         font-size:52px;
         font-weight:800;
         line-height:1.35;
+        text-shadow:0px 3px 15px rgba(0,0,0,0.5);
     ">
         SMARTER PREDICTIONS.<br>
         BETTER DECISIONS.
@@ -184,9 +239,10 @@ if st.session_state.page == "home":
 
     <p style="
         font-size:18px;
-        color:#CBD5E1;
+        color:#E2E8F0;
         max-width:750px;
         line-height:1.8;
+        text-shadow:0px 2px 8px rgba(0,0,0,0.7);
     ">
         Get detailed football match predictions,
         statistical analysis and risk insights
@@ -235,8 +291,8 @@ if st.session_state.page == "home":
     with f2:
         st.markdown("### 🛡️ Risk Analysis")
         st.write(
-            "Understand probabilities "
-            "and prediction uncertainty."
+            "Understand prediction probabilities "
+            "and uncertainty."
         )
 
     with f3:
@@ -248,7 +304,7 @@ if st.session_state.page == "home":
 
 
 # ==========================================
-# 5. LOGIN PAGE
+# 6. LOGIN PAGE
 # ==========================================
 
 elif st.session_state.page == "login":
@@ -295,6 +351,7 @@ elif st.session_state.page == "login":
             )
 
             if login_submit:
+
                 if not email or not password:
                     st.warning(
                         "Please enter your email and password."
@@ -339,7 +396,7 @@ elif st.session_state.page == "login":
 
 
 # ==========================================
-# 6. CREATE ACCOUNT PAGE
+# 7. CREATE ACCOUNT PAGE
 # ==========================================
 
 elif st.session_state.page == "register":
@@ -458,7 +515,7 @@ elif st.session_state.page == "register":
 
 
 # ==========================================
-# 7. FOOTER
+# 8. FOOTER
 # ==========================================
 
 st.write("")
