@@ -2,10 +2,10 @@
 import streamlit as st
 
 # ==========================================
-# YANIDOLLARZ - FOOTBALL PREDICTION PLATFORM
+# YANIDOLLARZ
+# Football Predictions & Analytics
 # ==========================================
 
-# Page configuration
 st.set_page_config(
     page_title="YANIDOLLARZ",
     page_icon="⚽",
@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 1. WEBSITE DESIGN
+# 1. WEBSITE STYLING
 # ==========================================
 
 st.markdown("""
@@ -23,46 +23,47 @@ st.markdown("""
 /* Main background */
 .stApp {
     background: linear-gradient(
-        135deg,
+        120deg,
         #080D15 0%,
-        #101C2B 50%,
+        #101C2B 55%,
         #17263A 100%
     );
     color: #F8FAFC;
 }
 
-/* Main content */
+/* Page container */
 .block-container {
+    max-width: 1200px;
     padding-top: 2rem;
     padding-bottom: 3rem;
-    max-width: 1250px;
 }
 
-/* Headings */
+/* Text */
 h1, h2, h3 {
     color: #F8FAFC !important;
 }
 
-/* Paragraph text */
 p {
-    color: #E2E8F0;
+    color: #CBD5E1;
 }
 
 /* All buttons */
-.stButton > button {
+.stButton > button,
+.stFormSubmitButton > button {
     background-color: #1B2A40;
     color: #FFFFFF !important;
     border: 1px solid #3B82F6;
     border-radius: 9px;
     font-weight: 600;
-    min-height: 45px;
-    transition: 0.2s ease;
+    min-height: 46px;
+    transition: 0.2s;
 }
 
-/* Button hover */
-.stButton > button:hover {
+/* Hover */
+.stButton > button:hover,
+.stFormSubmitButton > button:hover {
     background-color: #263B58;
-    color: #FFFFFF !important;
+    color: white !important;
     border-color: #60A5FA;
 }
 
@@ -70,43 +71,43 @@ p {
 .stButton > button[kind="primary"],
 .stFormSubmitButton > button[kind="primary"] {
     background-color: #2563EB;
-    color: #FFFFFF !important;
+    color: white !important;
     border: none;
-    border-radius: 9px;
 }
 
-/* Primary button hover */
+/* Primary hover */
 .stButton > button[kind="primary"]:hover,
 .stFormSubmitButton > button[kind="primary"]:hover {
     background-color: #1D4ED8;
-    color: #FFFFFF !important;
-}
-
-/* Form submit buttons */
-.stFormSubmitButton > button {
-    color: #FFFFFF !important;
-    border-radius: 9px;
 }
 
 /* Input fields */
 .stTextInput input {
     background-color: #162337;
-    color: #FFFFFF;
+    color: white;
     border: 1px solid #334155;
     border-radius: 8px;
 }
 
-/* Input labels */
+/* Labels */
 .stTextInput label {
     color: #E2E8F0 !important;
 }
 
-/* Dividers */
+/* Form container */
+[data-testid="stForm"] {
+    background-color: rgba(20, 32, 49, 0.65);
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 25px;
+}
+
+/* Divider */
 hr {
     border-color: #334155;
 }
 
-/* Hide Streamlit footer */
+/* Hide footer */
 footer {
     visibility: hidden;
 }
@@ -116,7 +117,7 @@ footer {
 
 
 # ==========================================
-# 2. SESSION STATE AND NAVIGATION
+# 2. PAGE NAVIGATION
 # ==========================================
 
 if "page" not in st.session_state:
@@ -129,51 +130,27 @@ def navigate(page):
 
 
 # ==========================================
-# 3. WEBSITE HEADER
+# 3. WEBSITE LOGO
 # ==========================================
 
-st.markdown(
-    """
-    <h2 style="margin-bottom:0;">
-        YANI<span style="color:#3B82F6;">DOLLARZ</span>
-    </h2>
-    <p style="
-        font-size:13px;
-        letter-spacing:2px;
-        color:#94A3B8;
-    ">
-        FOOTBALL PREDICTIONS & ANALYTICS
-    </p>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<h2 style="
+    font-size:34px;
+    font-weight:800;
+    margin-bottom:0;
+">
+    YANI<span style="color:#3B82F6;">DOLLARZ</span>
+</h2>
 
-# Navigation menu
-nav1, nav2, nav3 = st.columns([3, 1, 1])
-
-with nav1:
-    if st.button(
-        "⌂ Home",
-        key="nav_home",
-        use_container_width=True
-    ):
-        navigate("home")
-
-with nav2:
-    if st.button(
-        "Login",
-        key="nav_login",
-        use_container_width=True
-    ):
-        navigate("login")
-
-with nav3:
-    if st.button(
-        "Create Account",
-        key="nav_register",
-        use_container_width=True
-    ):
-        navigate("register")
+<p style="
+    font-size:12px;
+    letter-spacing:3px;
+    color:#94A3B8;
+    margin-top:5px;
+">
+    FOOTBALL PREDICTIONS & ANALYTICS
+</p>
+""", unsafe_allow_html=True)
 
 st.divider()
 
@@ -187,39 +164,36 @@ if st.session_state.page == "home":
     st.write("")
     st.write("")
 
-    st.markdown(
-        """
-        <p style="
-            color:#60A5FA;
-            letter-spacing:4px;
-            font-size:14px;
-        ">
-            FOOTBALL PREDICTIONS
-        </p>
+    st.markdown("""
+    <p style="
+        color:#60A5FA;
+        letter-spacing:4px;
+        font-size:14px;
+    ">
+        FOOTBALL PREDICTIONS
+    </p>
 
-        <h1 style="
-            font-size:52px;
-            font-weight:800;
-            line-height:1.3;
-        ">
-            SMARTER PREDICTIONS.<br>
-            BETTER DECISIONS.
-        </h1>
+    <h1 style="
+        font-size:52px;
+        font-weight:800;
+        line-height:1.35;
+    ">
+        SMARTER PREDICTIONS.<br>
+        BETTER DECISIONS.
+    </h1>
 
-        <p style="
-            font-size:18px;
-            color:#CBD5E1;
-            max-width:750px;
-            line-height:1.8;
-        ">
-            Get detailed football match predictions,
-            statistical analysis and risk insights
-            for match results, goals, corners,
-            bookings and more.
-        </p>
-        """,
-        unsafe_allow_html=True
-    )
+    <p style="
+        font-size:18px;
+        color:#CBD5E1;
+        max-width:750px;
+        line-height:1.8;
+    ">
+        Get detailed football match predictions,
+        statistical analysis and risk insights
+        for match results, goals, corners,
+        bookings and more.
+    </p>
+    """, unsafe_allow_html=True)
 
     st.write("")
 
@@ -246,7 +220,7 @@ if st.session_state.page == "home":
     st.write("")
     st.divider()
 
-    # Website features
+    # Features
     st.subheader("What YANIDOLLARZ Offers")
 
     f1, f2, f3 = st.columns(3)
@@ -254,21 +228,21 @@ if st.session_state.page == "home":
     with f1:
         st.markdown("### ⚽ Match Predictions")
         st.write(
-            "Analyse match outcomes, goals, "
+            "Analyse match results, goals, "
             "corners and bookings."
         )
 
     with f2:
         st.markdown("### 🛡️ Risk Analysis")
         st.write(
-            "Understand prediction probabilities "
-            "and uncertainty."
+            "Understand probabilities "
+            "and prediction uncertainty."
         )
 
     with f3:
         st.markdown("### 📊 Performance Tracking")
         st.write(
-            "Track historical predictions "
+            "Track previous predictions "
             "and model performance."
         )
 
@@ -279,30 +253,25 @@ if st.session_state.page == "home":
 
 elif st.session_state.page == "login":
 
-    left, middle, right = st.columns([1, 2, 1])
+    left, center, right = st.columns([1, 2, 1])
 
-    with middle:
-
-        st.write("")
-
-        st.markdown(
-            """
-            <h2 style="text-align:center;">
-                Welcome Back
-            </h2>
-
-            <p style="
-                text-align:center;
-                color:#94A3B8;
-            ">
-                Login to access your football
-                predictions and analysis.
-            </p>
-            """,
-            unsafe_allow_html=True
-        )
+    with center:
 
         st.write("")
+
+        st.markdown("""
+        <h2 style="text-align:center;">
+            Welcome Back
+        </h2>
+
+        <p style="
+            text-align:center;
+            color:#94A3B8;
+        ">
+            Login to access your predictions
+            and analysis.
+        </p>
+        """, unsafe_allow_html=True)
 
         with st.form("login_form"):
 
@@ -326,15 +295,14 @@ elif st.session_state.page == "login":
             )
 
             if login_submit:
-
                 if not email or not password:
                     st.warning(
                         "Please enter your email and password."
                     )
                 else:
                     st.info(
-                        "Login authentication will be "
-                        "connected in the next stage."
+                        "Real login authentication "
+                        "will be added later."
                     )
 
         st.write("")
@@ -344,22 +312,20 @@ elif st.session_state.page == "login":
             unsafe_allow_html=True
         )
 
-        # Google login placeholder
         if st.button(
             "🌐 Continue with Google",
             key="google_login",
             use_container_width=True
         ):
             st.info(
-                "Google authentication will "
-                "be configured later."
+                "Google sign-in will be connected later."
             )
 
         st.write("")
 
         if st.button(
-            "Don't have an account? Sign Up",
-            key="login_to_register",
+            "Create an Account",
+            key="login_register",
             use_container_width=True
         ):
             navigate("register")
@@ -378,30 +344,25 @@ elif st.session_state.page == "login":
 
 elif st.session_state.page == "register":
 
-    left, middle, right = st.columns([1, 2, 1])
+    left, center, right = st.columns([1, 2, 1])
 
-    with middle:
-
-        st.write("")
-
-        st.markdown(
-            """
-            <h2 style="text-align:center;">
-                Create Your Account
-            </h2>
-
-            <p style="
-                text-align:center;
-                color:#94A3B8;
-            ">
-                Join YANIDOLLARZ and start
-                analysing football matches.
-            </p>
-            """,
-            unsafe_allow_html=True
-        )
+    with center:
 
         st.write("")
+
+        st.markdown("""
+        <h2 style="text-align:center;">
+            Create Your Account
+        </h2>
+
+        <p style="
+            text-align:center;
+            color:#94A3B8;
+        ">
+            Join YANIDOLLARZ and start
+            analysing football matches.
+        </p>
+        """, unsafe_allow_html=True)
 
         with st.form("register_form"):
 
@@ -435,12 +396,12 @@ elif st.session_state.page == "register":
 
             if register_submit:
 
-                if (
-                    not username
-                    or not email
-                    or not password
-                    or not confirm_password
-                ):
+                if not all([
+                    username,
+                    email,
+                    password,
+                    confirm_password
+                ]):
                     st.warning(
                         "Please complete all fields."
                     )
@@ -458,8 +419,8 @@ elif st.session_state.page == "register":
 
                 else:
                     st.info(
-                        "Account registration will be "
-                        "connected in the next stage."
+                        "Account registration will "
+                        "be connected later."
                     )
 
         st.write("")
@@ -476,14 +437,14 @@ elif st.session_state.page == "register":
         ):
             st.info(
                 "Google registration will "
-                "be configured later."
+                "be connected later."
             )
 
         st.write("")
 
         if st.button(
             "Already have an account? Login",
-            key="register_to_login",
+            key="register_login",
             use_container_width=True
         ):
             navigate("login")
@@ -503,17 +464,14 @@ elif st.session_state.page == "register":
 st.write("")
 st.write("")
 
-st.markdown(
-    """
-    <div style="
-        text-align:center;
-        color:#64748B;
-        font-size:12px;
-        padding:20px;
-    ">
-        © 2026 YANIDOLLARZ |
-        Football Predictions & Analytics
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div style="
+    text-align:center;
+    color:#64748B;
+    font-size:12px;
+    padding:20px;
+">
+    © 2026 YANIDOLLARZ |
+    Football Predictions & Analytics
+</div>
+""", unsafe_allow_html=True)
