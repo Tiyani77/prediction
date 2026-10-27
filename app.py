@@ -2,6 +2,8 @@
 import streamlit as st
 import base64
 from pathlib import Path
+from supabase import create_client
+from supabase_auth.errors import AuthApiError
 
 # ==========================================
 # YANIDOLLARZ
@@ -16,11 +18,32 @@ st.set_page_config(
 )
 
 # ==========================================
-# 1. PAGE NAVIGATION
+# 1. SUPABASE CONNECTION
+# ==========================================
+
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+
+def get_supabase():
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    )
+
+
+# ==========================================
+# 2. SESSION STATE
 # ==========================================
 
 if "page" not in st.session_state:
     st.session_state.page = "home"
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if "auth_session" not in st.session_state:
+    st.session_state.auth_session = None
 
 
 def navigate(page):
@@ -28,13 +51,40 @@ def navigate(page):
     st.rerun()
 
 
+def logout():
+    """End the current Supabase session."""
+    session = st.session_state.auth_session
+
+    if session is not None:
+        try:
+            client = get_supabase()
+            client.auth.set_session(
+                session.access_token,
+                session.refresh_token
+            )
+            client.auth.sign_out()
+        except Exception:
+            # Clear the local session even if the
+            # remote sign-out request fails.
+            pass
+
+    st.session_state.user = None
+    st.session_state.auth_session = None
+    navigate("home")
+
+
 # ==========================================
-# 2. LOAD STADIUM PNG BACKGROUND
+# 3. LOAD STADIUM PNG
 # ==========================================
 
-image_path = Path(__file__).parent / "assets" / "stadium.png"
+image_path = (
+    Path(__file__).parent
+    / "assets"
+    / "stadium.png"
+)
 
 if image_path.exists():
+
     image_base64 = base64.b64encode(
         image_path.read_bytes()
     ).decode("utf-8")
@@ -42,15 +92,15 @@ if image_path.exists():
     stadium_background = (
         f"url('data:image/png;base64,{image_base64}')"
     )
+
 else:
     stadium_background = "none"
 
 
 # ==========================================
-# 3. WEBSITE STYLING
+# 4. WEBSITE BACKGROUND
 # ==========================================
 
-# Stadium background only on homepage
 if st.session_state.page == "home":
 
     background_css = f"""
@@ -63,7 +113,7 @@ if st.session_state.page == "home":
             ),
             {stadium_background};
         background-size: cover;
-        background-position: center center;
+        background-position: center;
         background-attachment: fixed;
         background-repeat: no-repeat;
     """
@@ -80,8 +130,10 @@ else:
     """
 
 
-# Use a placeholder instead of an f-string
-# so normal CSS braces work correctly.
+# ==========================================
+# 5. WEBSITE STYLING
+# ==========================================
+
 css = """
 <style>
 
@@ -120,7 +172,7 @@ p {
     transition: 0.2s ease;
 }
 
-/* Button hover */
+/* Hover effects */
 .stButton > button:hover,
 .stFormSubmitButton > button:hover {
     background-color: #263B58;
@@ -143,7 +195,7 @@ p {
     color: #FFFFFF !important;
 }
 
-/* Text inputs */
+/* Input fields */
 .stTextInput input {
     background-color: #162337;
     color: #FFFFFF;
@@ -164,12 +216,12 @@ p {
     padding: 25px;
 }
 
-/* Divider */
+/* Dividers */
 hr {
     border-color: #334155;
 }
 
-/* Footer */
+/* Hide default footer */
 footer {
     visibility: hidden;
 }
@@ -178,13 +230,16 @@ footer {
 """
 
 st.markdown(
-    css.replace("__BACKGROUND_CSS__", background_css),
+    css.replace(
+        "__BACKGROUND_CSS__",
+        background_css
+    ),
     unsafe_allow_html=True
 )
 
 
 # ==========================================
-# 4. YANIDOLLARZ LOGO
+# 6. YANIDOLLARZ LOGO
 # ==========================================
 
 st.markdown("""
@@ -193,7 +248,8 @@ st.markdown("""
     font-weight:800;
     margin-bottom:0;
 ">
-    YANI<span style="color:#3B82F6;">DOLLARZ</span>
+    YANI<span style="color:#3B82F6;">
+    DOLLARZ</span>
 </h2>
 
 <p style="
@@ -210,7 +266,7 @@ st.divider()
 
 
 # ==========================================
-# 5. HOMEPAGE
+# 7. HOMEPAGE
 # ==========================================
 
 if st.session_state.page == "home":
@@ -253,30 +309,39 @@ if st.session_state.page == "home":
 
     st.write("")
 
-    col1, col2, col3 = st.columns([1, 1, 2])
+    if st.session_state.user is None:
 
-    with col1:
-        if st.button(
-            "Login →",
-            type="primary",
-            key="home_login",
-            use_container_width=True
-        ):
-            navigate("login")
+        col1, col2, col3 = st.columns([1, 1, 2])
 
-    with col2:
+        with col1:
+            if st.button(
+                "Login →",
+                type="primary",
+                key="home_login",
+                use_container_width=True
+            ):
+                navigate("login")
+
+        with col2:
+            if st.button(
+                "Create Account",
+                key="home_register",
+                use_container_width=True
+            ):
+                navigate("register")
+
+    else:
+
         if st.button(
-            "Create Account",
-            key="home_register",
-            use_container_width=True
+            "Open Dashboard →",
+            type="primary"
         ):
-            navigate("register")
+            navigate("dashboard")
 
     st.write("")
     st.write("")
     st.divider()
 
-    # Features
     st.subheader("What YANIDOLLARZ Offers")
 
     f1, f2, f3 = st.columns(3)
@@ -304,7 +369,7 @@ if st.session_state.page == "home":
 
 
 # ==========================================
-# 6. LOGIN PAGE
+# 8. LOGIN PAGE
 # ==========================================
 
 elif st.session_state.page == "login":
@@ -324,8 +389,8 @@ elif st.session_state.page == "login":
             text-align:center;
             color:#94A3B8;
         ">
-            Login to access your predictions
-            and analysis.
+            Login to access your football
+            predictions and analysis.
         </p>
         """, unsafe_allow_html=True)
 
@@ -342,8 +407,6 @@ elif st.session_state.page == "login":
                 placeholder="Enter your password"
             )
 
-            remember = st.checkbox("Remember me")
-
             login_submit = st.form_submit_button(
                 "Login",
                 type="primary",
@@ -353,14 +416,65 @@ elif st.session_state.page == "login":
             if login_submit:
 
                 if not email or not password:
+
                     st.warning(
-                        "Please enter your email and password."
+                        "Please enter your email "
+                        "and password."
                     )
+
                 else:
-                    st.info(
-                        "Real login authentication "
-                        "will be added later."
-                    )
+
+                    try:
+                        supabase = get_supabase()
+
+                        response = (
+                            supabase.auth.sign_in_with_password({
+                                "email": email.strip(),
+                                "password": password
+                            })
+                        )
+
+                        if (
+                            response.user
+                            and response.session
+                        ):
+
+                            st.session_state.user = (
+                                response.user
+                            )
+
+                            st.session_state.auth_session = (
+                                response.session
+                            )
+
+                            st.session_state.page = (
+                                "dashboard"
+                            )
+
+                            st.rerun()
+
+                        else:
+
+                            st.error(
+                                "Login failed. "
+                                "Please try again."
+                            )
+
+                    except AuthApiError:
+
+                        st.error(
+                            "Login failed. Check your "
+                            "email and password, and "
+                            "make sure your email "
+                            "is verified."
+                        )
+
+                    except Exception:
+
+                        st.error(
+                            "Unable to log in right now. "
+                            "Please try again."
+                        )
 
         st.write("")
 
@@ -375,7 +489,8 @@ elif st.session_state.page == "login":
             use_container_width=True
         ):
             st.info(
-                "Google sign-in will be connected later."
+                "Google sign-in will be "
+                "connected in the next stage."
             )
 
         st.write("")
@@ -396,7 +511,7 @@ elif st.session_state.page == "login":
 
 
 # ==========================================
-# 7. CREATE ACCOUNT PAGE
+# 9. CREATE ACCOUNT PAGE
 # ==========================================
 
 elif st.session_state.page == "register":
@@ -459,26 +574,67 @@ elif st.session_state.page == "register":
                     password,
                     confirm_password
                 ]):
+
                     st.warning(
                         "Please complete all fields."
                     )
 
                 elif password != confirm_password:
+
                     st.error(
                         "Passwords do not match."
                     )
 
                 elif len(password) < 8:
+
                     st.warning(
-                        "Password must contain at least "
-                        "8 characters."
+                        "Password must contain "
+                        "at least 8 characters."
                     )
 
                 else:
-                    st.info(
-                        "Account registration will "
-                        "be connected later."
-                    )
+
+                    try:
+                        supabase = get_supabase()
+
+                        response = supabase.auth.sign_up({
+                            "email": email.strip(),
+                            "password": password,
+                            "options": {
+                                "data": {
+                                    "username": username.strip()
+                                }
+                            }
+                        })
+
+                        if response.user:
+
+                            st.success(
+                                "Registration request "
+                                "received! Please check "
+                                "your email for a "
+                                "verification link."
+                            )
+
+                        else:
+
+                            st.info(
+                                "Please check your email "
+                                "for further instructions."
+                            )
+
+                    except AuthApiError as e:
+
+                        st.error(
+                            f"Registration failed: {e.message}"
+                        )
+
+                    except Exception:
+
+                        st.error(
+                            "Registration could not be "
+                            "completed. Please try again."
+                        )
 
         st.write("")
 
@@ -515,7 +671,118 @@ elif st.session_state.page == "register":
 
 
 # ==========================================
-# 8. FOOTER
+# 10. USER DASHBOARD
+# ==========================================
+
+elif st.session_state.page == "dashboard":
+
+    if (
+        st.session_state.user is None
+        or st.session_state.auth_session is None
+    ):
+
+        st.warning("Please log in first.")
+
+        if st.button("Go to Login"):
+            navigate("login")
+
+    else:
+
+        # Validate the current session with Supabase
+        try:
+            client = get_supabase()
+
+            session = st.session_state.auth_session
+
+            client.auth.set_session(
+                session.access_token,
+                session.refresh_token
+            )
+
+            refreshed = client.auth.get_session()
+
+            if refreshed is None:
+                raise ValueError("Session expired")
+
+            verified = client.auth.get_user(
+                refreshed.access_token
+            )
+
+            if verified.user is None:
+                raise ValueError("Invalid user")
+
+            st.session_state.user = verified.user
+            st.session_state.auth_session = refreshed
+
+        except Exception:
+            st.session_state.user = None
+            st.session_state.auth_session = None
+
+            st.warning(
+                "Your session has expired. "
+                "Please log in again."
+            )
+
+            if st.button("Return to Login"):
+                navigate("login")
+
+            st.stop()
+
+        user = st.session_state.user
+
+        username = (
+            user.user_metadata.get("username")
+            if user.user_metadata
+            else None
+        )
+
+        if not username:
+            username = (
+                user.email.split("@")[0]
+                if user.email
+                else "Football Fan"
+            )
+
+        st.title(f"Welcome, {username}! ⚽")
+
+        st.write(
+            "You have successfully logged "
+            "into YANIDOLLARZ."
+        )
+
+        st.divider()
+
+        st.subheader("Your Football Dashboard")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.info(
+                "⚽ Match Predictions — Coming Soon"
+            )
+
+        with col2:
+            st.info(
+                "📊 Risk Analysis — Coming Soon"
+            )
+
+        with col3:
+            st.info(
+                "📅 Upcoming Fixtures — Coming Soon"
+            )
+
+        st.write("")
+
+        if st.button(
+            "Logout",
+            type="primary",
+            use_container_width=True
+        ):
+            logout()
+
+
+# ==========================================
+# 11. FOOTER
 # ==========================================
 
 st.write("")
