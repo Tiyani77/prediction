@@ -1460,6 +1460,88 @@ def render_experimental_recent_comparison(match, baseline):
         st.info('These are two model estimates, not measured chances. The experimental values are not saved to your prediction history.')
 
 
+
+def show_bet_tip(match, p, home, away):
+    """Educational market comparison; preserve original Poisson probabilities."""
+    st.subheader("🎯 Bet Tip · Match intelligence")
+    st.caption("Model-based market ideas, not guaranteed wins or verified bookmaker value. No paid data or new API keys.")
+
+    home_p, draw_p, away_p = (float(p[k]) for k in ("home_win", "draw", "away_win"))
+    candidates = [
+        (f"{home} or Draw (1X)", home_p + draw_p, "Double chance"),
+        (f"{away} or Draw (X2)", away_p + draw_p, "Double chance"),
+        (f"{home} or {away} (12)", home_p + away_p, "Double chance"),
+        ("Under 3.5 goals", 1.0 - float(p["overs"].get(3.5, 0.5)), "Total goals"),
+        ("Over 1.5 goals", float(p["overs"].get(1.5, 0.5)), "Total goals"),
+        ("Both teams to score · No", 1.0 - float(p["btts"]), "Goals market"),
+        ("Both teams to score · Yes", float(p["btts"]), "Goals market"),
+    ]
+    ranked = sorted(candidates, key=lambda x: x[1], reverse=True)
+    top = ranked[0]
+    cols = st.columns(3)
+    cols[0].metric("Home win", f"{home_p:.1%}")
+    cols[1].metric("Draw", f"{draw_p:.1%}")
+    cols[2].metric("Away win", f"{away_p:.1%}")
+
+    st.markdown("#### 🛡️ Lower-risk model angle")
+    if top[1] < 0.65 or "High" in str(p.get("risk", "")):
+        st.warning("**No confident model angle.** The available probabilities or data-quality risk do not justify a stronger suggestion.")
+    else:
+        st.success(f"**{top[0]}** · estimated chance **{top[1]:.1%}** · {top[2]}")
+        st.write("This has the highest estimated hit probability among the markets evaluated below. "
+                 "A high hit probability does not mean good value, and the selection can still lose.")
+    with st.expander("📊 Compare possible selections", expanded=False):
+        for label, probability, market in ranked:
+            st.write(f"**{label}** — {probability:.1%} estimated · {market}")
+            st.progress(max(0.0, min(1.0, probability)))
+    st.caption("Double-chance probabilities are sums of mutually exclusive match outcomes. Goals probabilities come from the same baseline Poisson model. No odds, margins, or calibration are included.")
+
+    st.markdown("#### 📰 What football news says")
+    articles, errors = get_free_football_news()
+    home_terms, away_terms = _news_team_terms(home), _news_team_terms(away)
+    def mentions(text, terms):
+        return any(re.search(r"(?<!\\w)" + re.escape(term) + r"(?!\\w)", text) for term in terms)
+    relevant = []
+    for article in articles:
+        content = (article["title"] + " " + article.get("summary", "")).lower()
+        if mentions(content, home_terms) or mentions(content, away_terms):
+            relevant.append(article)
+    if relevant:
+        st.caption(f"{len(relevant)} relevant headline(s) found in currently available free RSS feeds. Headlines are context, not a verified expert vote.")
+        for article in relevant[:5]:
+            with st.expander(f"📰 {article['title']}", expanded=False):
+                st.caption(f"{article['publisher']} · {article.get('published') or 'Date unavailable'}")
+                excerpt = article.get("summary", "").strip()
+                if excerpt and excerpt.casefold().rstrip(" .") != article["title"].casefold().rstrip(" ."):
+                    st.write(excerpt)
+                else:
+                    st.info("No useful in-app summary supplied by this publisher.")
+                st.link_button("Read original source (optional)", article["link"])
+    else:
+        st.info("No relevant recent headlines in the available free feeds. We cannot infer that there are no injuries or that experts favour either side.")
+
+    st.markdown("#### 🔎 Model vs expert opinion")
+    leader = max([("home", home_p), ("draw", draw_p), ("away", away_p)], key=lambda x: x[1])
+    leader_name = {"home": home, "draw": "a draw", "away": away}[leader[0]]
+    st.write(f"**YANIDOLLARZ model:** {leader_name} has the highest individual result probability ({leader[1]:.1%}).")
+    st.info("**Expert consensus: not verified.** Free headlines do not reliably identify who each analyst backs. "
+            "We will not claim that 'most experts' expect a team to win unless independently attributed predictions can be extracted and checked. "
+            "Read the relevant reports above to assess whether their reasoning conflicts with the model.")
+
+    st.markdown("#### ⚕️ Injuries, rivalry & uncertainty")
+    all_news = " ".join((a["title"] + " " + a.get("summary", "")) for a in relevant).lower()
+    if re.search(r"\\b(injur(?:y|ies|ed)|sidelined|hamstring|ankle|knee|fitness|suspension|suspended|doubtful)\\b", all_news):
+        st.warning("Some matching news mentions fitness or player availability. **This is not a confirmed injury list.** Open the reports and check club announcements before relying on it.")
+    else:
+        st.caption("No injury-related keywords found in matching feed summaries. This does not confirm a full-strength squad.")
+    if re.search(r"\\b(derby|rivalry|rivals)\\b", all_news):
+        st.info("Rivalry / derby language appears in the news. High-profile rivalries can involve unusual pressure and team selection, but the baseline model does not quantify a derby effect.")
+    else:
+        st.caption("Derby status is not verified by the available feed. The model does not apply a derby adjustment.")
+    st.warning("**Important:** No selection is safe or guaranteed. Without current bookmaker odds and tested calibration, the app cannot determine whether a bet offers positive expected value. Skipping a bet is always an option.")
+    if errors:
+        st.caption("Unavailable news sources: " + ", ".join(errors) + ".")
+
 def show_prediction(match, risk_only=False):
     home_team, away_team = match.get('homeTeam') or {}, match.get('awayTeam') or {}
     home = home_team.get('name') or 'Home'
@@ -1513,10 +1595,10 @@ def show_prediction(match, risk_only=False):
     # Step 24.2: native Streamlit navigation. Only the selected panel is rendered.
     # Native widgets keep navigation keyboard-accessible and working on mobile.
     sections = ['🎯 Prediction', '⚽ Expected Goals', '🥅 Goals Markets',
-                '📋 Exact Scores', '🛡️ Model & Risk']
+                '📋 Exact Scores', '🎯 Bet Tip', '🛡️ Model & Risk']
     if risk_only:
         sections = ['🛡️ Model & Risk', '🎯 Prediction', '⚽ Expected Goals',
-                    '🥅 Goals Markets', '📋 Exact Scores']
+                    '🥅 Goals Markets', '📋 Exact Scores', '🎯 Bet Tip']
     st.markdown('<div class="yani-pred-tabs-label">EXPLORE MATCH INSIGHTS</div>', unsafe_allow_html=True)
     selected_section = st.radio(
         'Match prediction sections', sections, horizontal=True,
@@ -1569,6 +1651,8 @@ def show_prediction(match, risk_only=False):
         )
         st.markdown('<div class="yani-score-list">'+score_rows+'</div>', unsafe_allow_html=True)
         st.caption('Each scoreline is one possible result; probabilities do not sum to 100% because only the top five are shown.')
+    elif selected_section == '🎯 Bet Tip':
+        show_bet_tip(match, p, home, away)
     elif selected_section == '🛡️ Model & Risk':
         st.subheader('🛡️ Model risk & data quality')
         risk_class = 'high' if 'High' in p['risk'] else ('moderate' if 'Moderate' in p['risk'] else 'lower')
