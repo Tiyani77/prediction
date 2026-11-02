@@ -2,7 +2,8 @@
 
 GitHub Actions secrets:
     SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FOOTBALL_API_KEY,
-    BZZOIRO_API_KEY (for negative/Bzzoiro match IDs).
+    BZZOIRO_API_KEY (for negative/Bzzoiro match IDs),
+    HIGHLIGHTLY_API_KEY (optional, for verified corners/yellow cards).
 
 Positive match IDs belong to football-data.org; negative IDs encode Bzzoiro IDs.
 """
@@ -12,6 +13,8 @@ import logging
 import os
 import sys
 import time
+import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
@@ -90,166 +93,3 @@ def pending_matches():
     })
     return request_json(f"{URL}/rest/v1/prediction_history?{query}", supabase_headers()) or []
 
-
-def bsd_headers():
-    return {
-        "Authorization": f"Token {BZZOIRO_KEY}",
-        "Accept": "application/json",
-        "User-Agent": "YANIDOLLARZ/1.0 (score-sync)",
-    }
-
-
-def unwrap_bsd_event(payload, event_id):
-    """Accept detail responses or paginated list envelopes, but verify event ID."""
-    if isinstance(payload, dict):
-        if str(payload.get("id", "")) == str(event_id):
-            return payload
-        for field in ("event", "data", "results", "events", "items"):
-            value = payload.get(field)
-            found = unwrap_bsd_event(value, event_id)
-            if found:
-                return found
-    elif isinstance(payload, list):
-        for item in payload:
-            found = unwrap_bsd_event(item, event_id)
-            if found:
-                return found
-    return None
-
-
-def fetch_bsd_match(match_id):
-    if not BZZOIRO_KEY:
-        raise RuntimeError("BZZOIRO_API_KEY is missing from GitHub Actions secrets")
-    event_id = abs(int(match_id))
-    # BSD's /events/ collection is already used by the Streamlit application.
-    # Try the REST detail URL first; fall back to the collection if unsupported.
-    try:
-        payload = request_json(f"{BSD_BASE}/events/{event_id}/", bsd_headers())
-        event = unwrap_bsd_event(payload, event_id)
-        if event:
-            return event
-    except APIError as exc:
-        if exc.status not in (400, 404, 405):
-            raise
-    # Collection fallback uses the documented list endpoint shape of the app.
-    # Filter locally by exact event ID so unrelated events can never be written.
-    for params in ({"id": event_id, "limit": 100}, {"event_id": event_id, "limit": 100}):
-        payload = request_json(f"{BSD_BASE}/events/?{urlencode(params)}", bsd_headers())
-        event = unwrap_bsd_event(payload, event_id)
-        if event:
-            return event
-    LOG.warning("Bzzoiro event %s was not returned by the API; leaving pending", event_id)
-    return None
-
-
-def fetch_match(match_id):
-    if int(match_id) < 0:
-        return fetch_bsd_match(match_id)
-    if not FOOTBALL_KEY:
-        raise RuntimeError("FOOTBALL_API_KEY is missing from GitHub Actions secrets")
-    return request_json(
-        f"https://api.football-data.org/v4/matches/{int(match_id)}",
-        {"X-Auth-Token": FOOTBALL_KEY, "Accept": "application/json"},
-    )
-
-
-def numeric_score(value):
-    if isinstance(value, bool) or value is None:
-        return None
-    try:
-        number = int(value)
-        return number if number >= 0 else None
-    except (TypeError, ValueError):
-        return None
-
-
-def match_result(match_id, match):
-    """Return status and verified full-time scores, never fabricate missing values."""
-    if not isinstance(match, dict):
-        return None, None, None
-    if int(match_id) > 0:
-        status = str(match.get("status") or "").upper()
-        full = (match.get("score") or {}).get("fullTime") or {}
-        home, away = numeric_score(full.get("home")), numeric_score(full.get("away"))
-        return status, home, away
-
-    raw_status = str(match.get("status") or "").strip().lower().replace(" ", "_")
-    statuses = {
-        "finished": "FINISHED", "ft": "FINISHED", "full_time": "FINISHED",
-        "completed": "FINISHED", "ended": "FINISHED",
-        "cancelled": "CANCELLED", "canceled": "CANCELLED",
-        "postponed": "POSTPONED", "suspended": "SUSPENDED",
-    }
-    status = statuses.get(raw_status, raw_status.upper())
-    home = match.get("home_score")
-    away = match.get("away_score")
-    score = match.get("score")
-    if isinstance(score, dict):
-        full = score.get("fullTime") or score.get("full_time") or score
-        if isinstance(full, dict):
-            if home is None:
-                home = full.get("home")
-            if away is None:
-                away = full.get("away")
-    return status, numeric_score(home), numeric_score(away)
-
-
-def update_records(match_id, changes):
-    query = urlencode({"match_id": f"eq.{int(match_id)}", "status": "eq.Pending"})
-    request_json(
-        f"{URL}/rest/v1/prediction_history?{query}",
-        supabase_headers(), method="PATCH", payload=changes,
-    )
-
-
-def main():
-    if not URL.startswith("https://") or not SERVICE_KEY:
-        LOG.error("Missing or invalid SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY")
-        return 2
-    rows = pending_matches()
-    unique_ids = sorted({int(row["match_id"]) for row in rows if row.get("match_id") is not None})
-    LOG.info("Pending predictions: %s; unique matches: %s", len(rows), len(unique_ids))
-
-    updated = 0
-    errors = 0
-    skipped = 0
-    for i, match_id in enumerate(unique_ids):
-        try:
-            match = fetch_match(match_id)
-            if match is None:
-                skipped += 1
-                continue
-            status, home, away = match_result(match_id, match)
-            if status == "FINISHED" and home is not None and away is not None:
-                update_records(match_id, {
-                    "status": "Finished", "score_home": home, "score_away": away,
-                })
-                updated += 1
-                LOG.info("Match %s finished: %s-%s", match_id, home, away)
-            elif status in ("CANCELLED", "POSTPONED", "SUSPENDED"):
-                update_records(match_id, {"status": status.title()})
-                updated += 1
-            else:
-                skipped += 1
-                LOG.info("Match %s not final (status=%s); remains pending", match_id, status or "unknown")
-        except APIError as exc:
-            # Missing/unavailable event is not a workflow-wide failure.
-            if exc.status in (400, 404):
-                skipped += 1
-                LOG.warning("Match %s not available from provider (%s); remains pending", match_id, exc.status)
-            else:
-                errors += 1
-                LOG.error("Match %s failed: %s", match_id, exc)
-        except Exception as exc:
-            errors += 1
-            LOG.error("Match %s failed: %s", match_id, exc)
-        finally:
-            if i < len(unique_ids) - 1:
-                time.sleep(2)
-
-    LOG.info("Matches updated: %s; pending/skipped: %s; errors: %s", updated, skipped, errors)
-    return 1 if errors else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
